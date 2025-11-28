@@ -1113,16 +1113,17 @@ const ConfigurationSidebar = ({
 
   return (
     <>
-      {/* Collapsed Toggle Button */}
+      {/* Collapsed Toggle Button - Always visible when sidebar is closed */}
       <button
         onClick={onToggle}
-        className={`fixed left-4 top-4 z-50 p-2 bg-cyan-950/80 text-cyan-400 rounded-lg border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:bg-cyan-900 transition-all duration-300 ${isOpen ? 'opacity-0 pointer-events-none -translate-x-10' : 'opacity-100 translate-x-0'}`}
+        className={`fixed left-4 top-4 z-50 p-3 bg-cyan-950/90 backdrop-blur-sm text-cyan-400 rounded-lg border border-cyan-500/40 shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:bg-cyan-900 hover:border-cyan-400 transition-all duration-300 ${isOpen ? 'opacity-0 pointer-events-none -translate-x-10' : 'opacity-100 translate-x-0'}`}
+        aria-label="Show sidebar"
       >
         <MoreVertical size={20} />
       </button>
 
-      {/* Sidebar */}
-      <div className={`fixed left-0 top-0 h-screen w-80 bg-[#0f172a] border-r border-white/10 flex flex-col z-40 shadow-2xl transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      {/* Sidebar - Fixed and sticky for entire page */}
+      <div className={`fixed left-0 top-0 h-screen w-80 bg-[#0f172a] border-r border-white/10 flex flex-col z-40 shadow-2xl transition-transform duration-300 overflow-hidden ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 border-b border-white/10 bg-[#020617] flex justify-between items-center">
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -1275,6 +1276,9 @@ export default function VisualizationPage() {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true); // Ensure loading state is set
+      // Reset timeIndex when category changes
+      setTimeIndex(0);
+      
       // Try Backend First
       try {
         const controller = new AbortController();
@@ -1468,7 +1472,7 @@ export default function VisualizationPage() {
               onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
             />
 
-            <main className={`flex-1 min-h-screen flex flex-col min-w-0 transition-all duration-300 ${isSidebarOpen ? 'ml-80' : 'ml-0'}`}>
+            <main className={`flex-1 min-h-screen flex flex-col min-w-0 transition-all duration-300 ${isSidebarOpen ? 'ml-80' : 'ml-0'} overflow-y-auto`}>
 
               {/* Header */}
               <header className="sticky top-0 z-30 bg-[#020617]/90 backdrop-blur-md border-b border-white/10 px-8 py-4 shadow-lg">
@@ -1526,6 +1530,7 @@ export default function VisualizationPage() {
                 {/* Section 1: Force Directed Topology (Large) */}
                 <div className="h-[80vh] min-h-[700px]">
                   <ForceGraph
+                    key={`forcegraph-${selectedCategory}-${timeIndex}-${similarityThreshold}`}
                     matrix={filteredMatrix}
                     nodes={CITIES}
                     threshold={similarityThreshold}
@@ -1549,6 +1554,7 @@ This visualization represents the **similarity network** of cities based on thei
                 {/* Section 2: City Centrality Matrix (Large Table) */}
                 <div className="min-h-[600px]">
                   <CityCentralityMatrix
+                    key={`centrality-${selectedCategory}-${weightingMethod}`}
                     data={chartData}
                     explanation={`
 **City Centrality Matrix**
@@ -1570,6 +1576,7 @@ These metrics are recalculated in real-time based on the **Filtered Matrix** (af
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 min-h-[600px]">
                   <div className="h-full">
                     <CompositeScoreRanking
+                      key={`composite-${selectedCategory}-${weightingMethod}`}
                       data={chartData}
                       explanation={`
 **Composite Score Ranking**
@@ -1590,6 +1597,7 @@ You can adjust the weights using the **Composite Score Weighting** dropdown in t
                   </div>
                   <div className="h-full">
                     <ComparativeAnalysis
+                      key={`comparative-${selectedCategory}-${weightingMethod}`}
                       data={chartData}
                       explanation={`
 **Comparative Analysis**
@@ -1607,6 +1615,7 @@ This chart allows you to compare two different metrics side-by-side for the top 
                 {/* Section 4: Temporal Relation (Hasse) */}
                 <div className="min-h-[500px]">
                   <TemporalHasseDiagram
+                    key={`hasse-${selectedCategory}-${timeIndex}-${similarityThreshold}`}
                     months={months}
                     activeIndex={timeIndex}
                     matrix={filteredMatrix}
@@ -1629,6 +1638,7 @@ The horizontal axis represents the timeline. The current time step is highlighte
                 {/* Section 5: Live Correlation Matrix (New) */}
                 <div className="min-h-[800px] mb-12">
                   <LiveHeatMap
+                    key={`heatmap-${selectedCategory}-${timeIndex}-${similarityThreshold}`}
                     matrix={filteredMatrix}
                     nodes={CITIES}
                     explanation={`
