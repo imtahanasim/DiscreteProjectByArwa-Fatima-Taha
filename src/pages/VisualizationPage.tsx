@@ -1111,20 +1111,24 @@ const ConfigurationSidebar = ({
     }
   };
 
-  return (
+  // Render sidebar via portal to body to ensure it's completely independent
+  const sidebarContent = (
     <>
       {/* Collapsed Toggle Button - Always visible when sidebar is closed */}
       <button
         onClick={onToggle}
-        className={`fixed left-4 top-4 z-50 p-3 bg-cyan-950/90 backdrop-blur-sm text-cyan-400 rounded-lg border border-cyan-500/40 shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:bg-cyan-900 hover:border-cyan-400 transition-all duration-300 ${isOpen ? 'opacity-0 pointer-events-none -translate-x-10' : 'opacity-100 translate-x-0'}`}
+        className={`fixed left-4 top-4 z-[60] p-3 bg-cyan-950/90 backdrop-blur-sm text-cyan-400 rounded-lg border border-cyan-500/40 shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:bg-cyan-900 hover:border-cyan-400 transition-all duration-300 ${isOpen ? 'opacity-0 pointer-events-none -translate-x-10' : 'opacity-100 translate-x-0'}`}
         aria-label="Show sidebar"
       >
         <MoreVertical size={20} />
       </button>
 
-      {/* Sidebar - Fixed and sticky for entire page */}
-      <div className={`fixed left-0 top-0 h-screen w-80 bg-[#0f172a] border-r border-white/10 flex flex-col z-40 shadow-2xl transition-transform duration-300 overflow-hidden ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6 border-b border-white/10 bg-[#020617] flex justify-between items-center">
+      {/* Sidebar - Fixed and sticky for entire page, unaffected by scroll */}
+      <div 
+        className={`fixed left-0 top-0 h-screen w-80 bg-[#0f172a] border-r border-white/10 flex flex-col z-[55] shadow-2xl transition-transform duration-300 overflow-hidden ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ position: 'fixed', left: 0, top: 0, height: '100vh', width: '20rem', willChange: 'transform' }}
+      >
+        <div className="p-6 border-b border-white/10 bg-[#020617] flex justify-between items-center flex-shrink-0">
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <Activity className="text-cyan-400" /> Configuration
@@ -1136,7 +1140,7 @@ const ConfigurationSidebar = ({
           </button>
         </div>
 
-        <div className="p-6 flex flex-col gap-8 overflow-y-auto custom-scrollbar flex-1">
+        <div className="p-6 flex flex-col gap-8 overflow-y-auto custom-scrollbar flex-1 min-h-0">
 
           {/* Category Selection */}
           <div className="flex flex-col gap-3">
@@ -1256,6 +1260,9 @@ const ConfigurationSidebar = ({
       </div>
     </>
   );
+
+  // Render via portal to document.body to ensure fixed positioning works correctly
+  return typeof document !== 'undefined' ? createPortal(sidebarContent, document.body) : sidebarContent;
 };
 
 export default function VisualizationPage() {
@@ -1443,36 +1450,38 @@ export default function VisualizationPage() {
   }, [metrics, weightingMethod, selectedCategory, customWeights]);
 
   return (
-    <div className="bg-[#020617]/80 backdrop-blur text-slate-200 font-sans selection:bg-cyan-500/30 overflow-x-hidden min-h-screen flex">
+    <div className="bg-[#020617]/80 backdrop-blur text-slate-200 font-sans selection:bg-cyan-500/30 overflow-x-hidden min-h-screen flex relative">
 
       {/* View Transition */}
       <div className={`transition-opacity duration-1000 ${view === 'landing' ? 'opacity-100 fixed inset-0 z-50' : 'opacity-0 pointer-events-none absolute inset-0'}`}>
         {view === 'landing' && <Hero onStart={() => setView('dashboard')} loading={loading} />}
       </div>
 
+      {/* Sidebar - Rendered outside scrolling container, always fixed to viewport */}
+      {view === 'dashboard' && (
+        <ConfigurationSidebar
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          timeIndex={timeIndex}
+          setTimeIndex={setTimeIndex}
+          maxTime={Math.max(0, months.length - 1)}
+          months={months}
+          similarityThreshold={similarityThreshold}
+          setSimilarityThreshold={setSimilarityThreshold}
+          weightingMethod={weightingMethod}
+          setWeightingMethod={setWeightingMethod}
+          currentSimilarityStats={similarityStats}
+          customWeights={customWeights}
+          setCustomWeights={setCustomWeights}
+          isOpen={isSidebarOpen}
+          onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+        />
+      )}
+
       <div className={`transition-opacity duration-1000 flex w-full ${view === 'dashboard' ? 'opacity-100' : 'opacity-0 pointer-events-none absolute inset-0'}`}>
         {view === 'dashboard' && (
           <>
-            {/* Sidebar */}
-            <ConfigurationSidebar
-              selectedCategory={selectedCategory}
-              setSelectedCategory={setSelectedCategory}
-              timeIndex={timeIndex}
-              setTimeIndex={setTimeIndex}
-              maxTime={Math.max(0, months.length - 1)}
-              months={months}
-              similarityThreshold={similarityThreshold}
-              setSimilarityThreshold={setSimilarityThreshold}
-              weightingMethod={weightingMethod}
-              setWeightingMethod={setWeightingMethod}
-              currentSimilarityStats={similarityStats}
-              customWeights={customWeights}
-              setCustomWeights={setCustomWeights}
-              isOpen={isSidebarOpen}
-              onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-            />
-
-            <main className={`flex-1 min-h-screen flex flex-col min-w-0 transition-all duration-300 ${isSidebarOpen ? 'ml-80' : 'ml-0'} overflow-y-auto`}>
+            <main className={`flex-1 min-h-screen flex flex-col min-w-0 transition-all duration-300 ${isSidebarOpen ? 'ml-80' : 'ml-0'} overflow-y-auto relative`}>
 
               {/* Header */}
               <header className="sticky top-0 z-30 bg-[#020617]/90 backdrop-blur-md border-b border-white/10 px-8 py-4 shadow-lg">
