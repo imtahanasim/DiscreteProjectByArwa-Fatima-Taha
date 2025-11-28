@@ -210,8 +210,6 @@ const Hero = ({ onStart, loading }: { onStart: () => void, loading: boolean }) =
 );
 
 const ForceGraph = ({ matrix, nodes, threshold = 0, explanation }: { matrix: number[][], nodes: string[], threshold?: number, explanation?: string }) => {
-
-
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -276,6 +274,9 @@ const ForceGraph = ({ matrix, nodes, threshold = 0, explanation }: { matrix: num
     const container = containerRef.current;
     if (!canvas || !container || !matrix) return;
 
+    // Ensure threshold is a number and handle edge cases
+    const effectiveThreshold = typeof threshold === 'number' ? threshold : parseFloat(String(threshold)) || 0;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -317,11 +318,30 @@ const ForceGraph = ({ matrix, nodes, threshold = 0, explanation }: { matrix: num
           fy += Math.sin(angle) * force;
         }
         for (let j = 0; j < nodes.length; j++) {
-          if (matrix[i][j] > threshold) { // Apply Threshold
+          const val = matrix[i]?.[j];
+          
+          // Check if data is missing (null, undefined, NaN, or not a number)
+          const isMissing = val === null || val === undefined || !isFinite(val) || isNaN(val);
+          if (isMissing) continue; // Skip missing data
+          
+          // If value is exactly 0, it means no similarity (or missing data in the source)
+          // When threshold is 0, we show ALL connections where there's actual data (value > 0)
+          // When threshold > 0, we show edges where value >= threshold
+          let shouldShow: boolean;
+          if (Math.abs(effectiveThreshold) < 1e-10) {
+            // Threshold is 0 - show all connections with any positive similarity value
+            // This means any value > 0 indicates valid data and should be shown
+            shouldShow = val > 0;
+          } else {
+            // Threshold > 0 - show only edges meeting or exceeding threshold
+            shouldShow = val >= effectiveThreshold;
+          }
+          
+          if (shouldShow) {
             const dx = positions[j].x - positions[i].x;
             const dy = positions[j].y - positions[i].y;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            const force = (dist - 150) * k * matrix[i][j];
+            const force = (dist - 150) * k * val;
             const angle = Math.atan2(dy, dx);
             fx += Math.cos(angle) * force;
             fy += Math.sin(angle) * force;
@@ -355,11 +375,30 @@ const ForceGraph = ({ matrix, nodes, threshold = 0, explanation }: { matrix: num
       ctx.lineWidth = 1 / transform.k; // Keep lines thin
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
-          if (matrix[i][j] > threshold) { // Apply Threshold
+          const val = matrix[i]?.[j];
+          
+          // Check if data is missing (null, undefined, NaN, or not a number)
+          const isMissing = val === null || val === undefined || !isFinite(val) || isNaN(val);
+          if (isMissing) continue; // Skip missing data
+          
+          // If value is exactly 0, it means no similarity (or missing data in the source)
+          // When threshold is 0, we show ALL connections where there's actual data (value > 0)
+          // When threshold > 0, we show edges where value >= threshold
+          let shouldShow: boolean;
+          if (Math.abs(effectiveThreshold) < 1e-10) {
+            // Threshold is 0 - show all connections with any positive similarity value
+            // This means any value > 0 indicates valid data and should be shown
+            shouldShow = val > 0;
+          } else {
+            // Threshold > 0 - show only edges meeting or exceeding threshold
+            shouldShow = val >= effectiveThreshold;
+          }
+          
+          if (shouldShow) {
             ctx.beginPath();
             ctx.moveTo(positions[i].x, positions[i].y);
             ctx.lineTo(positions[j].x, positions[j].y);
-            ctx.strokeStyle = `rgba(34, 211, 238, ${matrix[i][j] * 0.8})`;
+            ctx.strokeStyle = `rgba(34, 211, 238, ${val * 0.8})`;
             ctx.stroke();
           }
         }
@@ -396,7 +435,7 @@ const ForceGraph = ({ matrix, nodes, threshold = 0, explanation }: { matrix: num
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
     };
-  }, [matrix, nodes, positions, transform]);
+  }, [matrix, nodes, positions, transform, threshold]);
 
   return (
     <DashboardSection title="Network Topology" className="h-full" explanation={explanation}>
@@ -994,13 +1033,15 @@ const TemporalHasseDiagram = ({ months, activeIndex, matrix, explanation }: { mo
 
   return (
     <DashboardSection title="Temporal Relation (Hasse)" className="h-full" explanation={explanation}>
-      <div className="absolute top-4 right-4 p-3 bg-black/40 backdrop-blur rounded border border-white/10 text-xs font-mono text-slate-400 space-y-1 z-20">
-        <div className="flex justify-between gap-4"><span>Reflexive:</span> <span className={properties.reflexive === 'YES' ? "text-cyan-400" : "text-red-400"}>{properties.reflexive}</span></div>
-        <div className="flex justify-between gap-4"><span>Antisymmetric:</span> <span className={properties.antisymmetric === 'YES' ? "text-cyan-400" : "text-red-400"}>{properties.antisymmetric}</span></div>
-        <div className="flex justify-between gap-4"><span>Transitive:</span> <span className={properties.transitive === 'YES' ? "text-cyan-400" : "text-red-400"}>{properties.transitive}</span></div>
-      </div>
+      <div className="relative h-full flex flex-col">
+        <div className="absolute top-4 right-4 p-3 bg-black/60 backdrop-blur-sm rounded-lg border border-white/20 text-xs font-mono text-slate-300 space-y-2 z-20 shadow-lg">
+          <div className="text-xs uppercase text-slate-400 mb-2 font-semibold">Properties</div>
+          <div className="flex justify-between gap-6"><span className="text-slate-400">Reflexive:</span> <span className={properties.reflexive === 'YES' ? "text-cyan-400 font-bold" : "text-red-400 font-bold"}>{properties.reflexive}</span></div>
+          <div className="flex justify-between gap-6"><span className="text-slate-400">Antisymmetric:</span> <span className={properties.antisymmetric === 'YES' ? "text-cyan-400 font-bold" : "text-red-400 font-bold"}>{properties.antisymmetric}</span></div>
+          <div className="flex justify-between gap-6"><span className="text-slate-400">Transitive:</span> <span className={properties.transitive === 'YES' ? "text-cyan-400 font-bold" : "text-red-400 font-bold"}>{properties.transitive}</span></div>
+        </div>
 
-      <div className="flex-1 overflow-x-auto custom-scrollbar flex items-center gap-8 px-8">
+        <div className="flex-1 overflow-x-auto custom-scrollbar flex items-center gap-8 px-8 py-8">
         {months.map((m, i) => {
           const isActive = i === activeIndex;
           const isPast = i < activeIndex;
@@ -1019,6 +1060,7 @@ const TemporalHasseDiagram = ({ months, activeIndex, matrix, explanation }: { mo
             </div>
           );
         })}
+        </div>
       </div>
     </DashboardSection>
   );
@@ -1277,7 +1319,29 @@ export default function VisualizationPage() {
   const [weightingMethod, setWeightingMethod] = useState("Equal Weighting");
 
   const [data, setData] = useState<Record<string, number[][]>>({});
+  const [similarityData, setSimilarityData] = useState<Record<string, number[][]>>({});
   const [months, setMonths] = useState<string[]>([]);
+
+  // Helper function to sort periods (handles both quarterly and monthly formats)
+  const sortPeriods = (periods: string[]): string[] => {
+    return periods.sort((a, b) => {
+      // Handle quarterly format: 2023Q1, 2024Q2, etc.
+      if (a.includes('Q') && b.includes('Q')) {
+        const [yearA, qA] = a.split('Q').map(x => parseInt(x));
+        const [yearB, qB] = b.split('Q').map(x => parseInt(x));
+        if (yearA !== yearB) return yearA - yearB;
+        return qA - qB;
+      }
+      // Handle monthly format: 2023-03, 2024-01, etc.
+      if (a.includes('-') && b.includes('-')) {
+        const [yearA, monthA] = a.split('-').map(x => parseInt(x));
+        const [yearB, monthB] = b.split('-').map(x => parseInt(x));
+        if (yearA !== yearB) return yearA - yearB;
+        return monthA - monthB;
+      }
+      return a.localeCompare(b);
+    });
+  };
 
   // Load Data
   useEffect(() => {
@@ -1289,21 +1353,57 @@ export default function VisualizationPage() {
       // Try Backend First
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout for backend
 
         // Encode category for URL
         const categoryParam = encodeURIComponent(selectedCategory);
-        const response = await fetch(`${API_URL}/api/data/graphs?category=${categoryParam}`, { signal: controller.signal });
+        
+        // Load similarity matrices (for heatmap and full similarity data)
+        const similarityResponse = await fetch(`${API_URL}/api/data/similarity?category=${categoryParam}`, { signal: controller.signal });
+        
+        // Load graph adjacency matrices (for network visualization)
+        const graphsResponse = await fetch(`${API_URL}/api/data/graphs?category=${categoryParam}&threshold=0.0`, { signal: controller.signal });
+        
         clearTimeout(timeoutId);
 
-        if (response.ok) {
-          const jsonData = await response.json();
-          if (Object.keys(jsonData).length > 0) {
-            setData(jsonData);
-            setMonths(Object.keys(jsonData).sort());
-            setLoading(false);
-            return;
+        let similarityJson: Record<string, number[][]> = {};
+        let graphsJson: Record<string, number[][]> = {};
+        let hasData = false;
+
+        // Process similarity matrices
+        if (similarityResponse.ok) {
+          const simData = await similarityResponse.json();
+          if (Object.keys(simData).length > 0) {
+            similarityJson = simData;
+            hasData = true;
           }
+        }
+
+        // Process graph matrices (use as fallback if similarity not available)
+        if (graphsResponse.ok) {
+          const graphData = await graphsResponse.json();
+          if (Object.keys(graphData).length > 0) {
+            graphsJson = graphData;
+            hasData = true;
+          }
+        }
+
+        if (hasData) {
+          // Set similarity data (preferred for full similarity matrix)
+          setSimilarityData(similarityJson);
+          // Set graph data (for network visualization)
+          setData(graphsJson);
+          
+          // Determine periods - prefer similarity data periods, fallback to graph periods
+          const allPeriods = new Set([
+            ...Object.keys(similarityJson),
+            ...Object.keys(graphsJson)
+          ]);
+          const periods = sortPeriods(Array.from(allPeriods));
+          setMonths(periods);
+          
+          setLoading(false);
+          return;
         }
       } catch (e) {
         console.warn("Backend not reachable, using Mock Data", e);
@@ -1311,6 +1411,7 @@ export default function VisualizationPage() {
 
       // Fallback to Mock Data
       setData(MOCK_DATA);
+      setSimilarityData({});
       setMonths(MONTHS);
       setLoading(false);
     };
@@ -1331,7 +1432,8 @@ export default function VisualizationPage() {
 
   // Derived Metrics
   const currentMonth = months[timeIndex] || "";
-  const currentMatrix = data[currentMonth] || [];
+  // Use similarity data if available (full similarity matrix), otherwise use graph data (filtered adjacency)
+  const currentMatrix = similarityData[currentMonth] || data[currentMonth] || [];
 
   // Filter Matrix based on Threshold (Client-Side)
   const filteredMatrix = useMemo(() => {
@@ -1540,7 +1642,7 @@ export default function VisualizationPage() {
                 <div className="h-[80vh] min-h-[700px]">
                   <ForceGraph
                     key={`forcegraph-${selectedCategory}-${timeIndex}-${similarityThreshold}`}
-                    matrix={filteredMatrix}
+                    matrix={currentMatrix}
                     nodes={CITIES}
                     threshold={similarityThreshold}
                     explanation={`
@@ -1627,7 +1729,7 @@ This chart allows you to compare two different metrics side-by-side for the top 
                     key={`hasse-${selectedCategory}-${timeIndex}-${similarityThreshold}`}
                     months={months}
                     activeIndex={timeIndex}
-                    matrix={filteredMatrix}
+                    matrix={currentMatrix}
                     explanation={`
 **Temporal Relation (Hasse Diagram)**
 
@@ -1648,7 +1750,7 @@ The horizontal axis represents the timeline. The current time step is highlighte
                 <div className="min-h-[800px] mb-12">
                   <LiveHeatMap
                     key={`heatmap-${selectedCategory}-${timeIndex}-${similarityThreshold}`}
-                    matrix={filteredMatrix}
+                    matrix={currentMatrix}
                     nodes={CITIES}
                     explanation={`
 **Live Correlation Heat Map**
